@@ -1,0 +1,84 @@
+# XcodeGen project spec — this file IS the Xcode project source.
+# Do not hand-edit a generated .xcodeproj; edit this file and regenerate:
+#   brew install xcodegen
+#   xcodegen generate
+# CI does exactly that (see .github/workflows/build-ipa.yml).
+#
+# Bundle ID: change this to something unique to you BEFORE the first
+# build, e.g. com.yourname.spektralabipad. A personal (free) signing
+# team cannot reliably reuse someone else's example ID.
+name: SpektraLab-iPad
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "17.0"
+  groupSortPosition: top
+targets:
+  SpektraLab-iPad:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      # Swift frontend (this folder, minus Resources, which is below).
+      - path: SpektraLab-iPad
+        excludes:
+          - Resources
+          - Info.plist
+          - SpektraLab_iPad-Bridging-Header.h
+      # C++ engine, same rule as the Mac app's gen-project.py:
+      # every translation unit under engine/src, except the Windows
+      # additions (io/, desktop/, Vulkan backend, Windows stub).
+      - path: engine/src
+        excludes:
+          - io
+          - desktop
+          - gpu/vulkan_gpu.cpp
+          - pipeline/windows_unported.cpp
+        compilerFlags:
+          - -std=c++20
+    resources:
+      # Folder reference: the bundle keeps the "engine" folder name,
+      # which is what EngineBridge looks for at runtime.
+      - path: SpektraLab-iPad/Resources/engine
+        type: folder
+    settings:
+      base:
+        PRODUCT_NAME: SpektraLab-iPad
+        PRODUCT_BUNDLE_IDENTIFIER: com.timcoderone.spektralabipad
+        INFOPLIST_FILE: SpektraLab-iPad/Info.plist
+        SWIFT_OBJC_BRIDGING_HEADER: SpektraLab-iPad/SpektraLab_iPad-Bridging-Header.h
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "2"
+        SUPPORTED_PLATFORMS: iphoneos
+        SDKROOT: iphoneos
+        HEADER_SEARCH_PATHS:
+          - engine/include
+          - engine/src
+          - engine/src/core
+          - engine/third_party/metal-cpp
+        CLANG_CXX_LANGUAGE_STANDARD: c++20
+        CLANG_CXX_LIBRARY: libc++
+        OTHER_LDFLAGS:
+          - -framework
+          - Metal
+          - -framework
+          - Foundation
+          - -framework
+          - QuartzCore
+          - -framework
+          - CoreText
+          - -framework
+          - CoreGraphics
+          - -framework
+          - Accelerate
+          - -framework
+          - UIKit
+          - -framework
+          - CoreImage
+        # Metal kernels are NOT compiled by Xcode here, on purpose:
+        # they are compiled offline by scripts/build-metallib-ios.sh
+        # with safe math (-fmetal-math-mode=safe), because Xcode's
+        # default fast math drifts past the engine's float32 bar and
+        # the engine refuses to start if it detects it (Mac build.sh
+        # documents the same trap). The resulting spektrafilm.metallib
+        # is copied into SpektraLab-iPad/Resources/engine/ by setup.sh.
