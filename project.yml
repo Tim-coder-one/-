@@ -59,6 +59,9 @@ targets:
           - engine/third_party/metal-cpp
         CLANG_CXX_LANGUAGE_STANDARD: c++20
         CLANG_CXX_LIBRARY: libc++
+        GCC_TREAT_WARNINGS_AS_ERRORS: "NO"
+        OTHER_CPLUSPLUSFLAGS:
+          - -Wno-error=return-type-c-linkage
         OTHER_LDFLAGS:
           - -framework
           - Metal
