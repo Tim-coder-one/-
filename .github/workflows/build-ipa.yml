@@ -1,0 +1,74 @@
+# Build an UNSIGNED iPad .ipa on a cloud Mac — no local Xcode needed.
+#
+# How to run it (see README-INSTALL.md for the full walkthrough):
+#   1. Put this whole folder at the root of a GitHub repo.
+#   2. Change PRODUCT_BUNDLE_IDENTIFIER in project.yml to a unique ID.
+#   3. GitHub repo -> Actions -> "Build unsigned iPad IPA" -> Run workflow.
+#   4. Download the "SpektraLab-iPad-unsigned-ipa" artifact, unzip it
+#      (GitHub wraps artifacts in a .zip), and sideload the .ipa inside
+#      with AltStore / SideStore using your own Apple ID.
+#
+# Why unsigned: a cloud runner cannot sign for YOUR iPad, and I do not
+# have your Apple ID (and must never be sent it). AltStore signs the
+# unsigned .ipa on your own computer/iPad with your own Apple ID.
+# Free personal signing normally lasts 7 days and then needs a refresh.
+#
+# First-run expectation, stated honestly: this project has NOT been
+# compiled on Xcode or tested on a real iPad yet (the authoring
+# environment here is Linux, with no Xcode and no iPad). The first
+# Actions run is the first real compile. If it fails, paste the failing
+# log section back and the fix goes into the Swift/C++ sources here —
+# do not "fix" it by changing the engine's math flags or metallib target.
+
+name: Build unsigned iPad IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - name: Check out this repo
+        uses: actions/checkout@v4
+
+      - name: Fetch upstream + build iOS metallib
+        run: |
+          chmod +x scripts/setup.sh scripts/build-metallib-ios.sh
+          ./scripts/setup.sh
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build for generic iOS device (no signing)
+        run: |
+          xcodebuild \
+            -project SpektraLab-iPad.xcodeproj \
+            -scheme SpektraLab-iPad \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package unsigned .ipa
+        run: |
+          APP=$(find ~/Library/Developer/Xcode/DerivedData -name 'SpektraLab-iPad.app' -type d | head -n 1)
+          echo "Found app: $APP"
+          test -n "$APP"
+          rm -rf Payload SpektraLab-iPad-unsigned.ipa
+          mkdir Payload
+          cp -R "$APP" Payload/
+          zip -r SpektraLab-iPad-unsigned.ipa Payload
+
+      - name: Upload unsigned .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpektraLab-iPad-unsigned-ipa
+          path: SpektraLab-iPad-unsigned.ipa
